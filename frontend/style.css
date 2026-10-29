@@ -18,3 +18,8 @@
 .download-actions .action-button small{color:#fff!important;opacity:.9}
 
 #status{margin-top:7px}.progress-panel{margin-top:7px}#sourceCodeWrap{margin-top:8px}#copyZipCode{margin-bottom:7px}
+
+.output-name-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.output-name-fields .field{min-width:0}
+.output-name-fields input{width:100%;box-sizing:border-box}
+@media(max-width:520px){.output-name-fields{grid-template-columns:1fr}}
