@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: sgk-tool-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: FRONTEND_ORIGIN
+        value: https://12ecember93.github.io
+      - key: MAX_URLS
+        value: "250"
+      - key: BOOKTOOL_PASSWORD
+        sync: false
