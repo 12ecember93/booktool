@@ -20,10 +20,9 @@ $('checkUrls').addEventListener('click', () => { const urls = updatePreview(); s
 $('clear').addEventListener('click', () => { $('urls').value = ''; updatePreview(); setStatus(''); });
 $('copyCode').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('extractCode').innerText); setStatus('Đã sao chép mã Console. Mở trang sách → F12 → Console → dán mã và nhấn Enter.', 'ok'); } catch { setStatus('Không thể tự sao chép mã. Mở “Xem mã Console” rồi sao chép thủ công.', 'error'); } });
 processButton.addEventListener('click', async () => {
-  const api = $('api').value.trim().replace(/\/+$/, ''); const urls = updatePreview(); const name = $('bookname').value.trim() || 'SGK_Sach'; const passcode = $('downloadPasscode').value;
+  const api = $('api').value.trim().replace(/\/+$/, ''); const urls = updatePreview(); const name = $('bookname').value.trim() || 'SGK_Sach';
   if (!api) return setStatus('Nhập Backend API URL sau khi deploy.', 'error');
   if (!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(api)) return setStatus('Backend URL phải là HTTPS URL hợp lệ.', 'error');
-  if (!passcode) return setStatus('Nhập passcode trước khi tạo và tải ZIP.', 'error');
   if (!urls.length) return setStatus('Không tìm thấy URL hợp lệ trong nội dung đã dán.', 'error');
   if (urls.length > 250) return setStatus('Tối đa 250 URL mỗi lần.', 'error');
   processButton.disabled = true; $('progress').hidden = false; $('progressPanel').hidden = false; $('bar').style.width = '12%'; $('log').textContent = new Date().toLocaleTimeString() + ' Đã trích xuất ' + urls.length + ' URL candidate…\n'; ['p1','p2','p3','p4','p5'].forEach(id => $(id).classList.remove('active')); $('p1').classList.add('active'); setStatus('Đang kiểm tra URL và gửi danh sách tới backend…');
@@ -33,6 +32,6 @@ processButton.addEventListener('click', async () => {
     if (!response.ok) { let detail = 'HTTP ' + response.status; try { const body = await response.json(); detail = body.detail || detail; } catch {} throw new Error(detail); }
     const blob = await response.blob(); ['p3','p4'].forEach(id => $(id).classList.add('active')); const disposition = response.headers.get('Content-Disposition') || ''; const match = disposition.match(/filename="?([^";]+)"?/i); const outName = match ? match[1] : name + '.zip'; const objectUrl = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = objectUrl; a.download = outName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(objectUrl), 60000); $('bar').style.width = '100%'; $('p5').classList.add('active'); $('log').textContent += 'ZIP sẵn sàng: ' + outName + '\n'; setStatus('Hoàn tất. Đã yêu cầu tải ' + outName + '.', 'ok');
   } catch (err) { $('log').textContent += 'Lỗi: ' + err.message + '\n'; setStatus('Không tạo được ZIP: ' + err.message, 'error'); }
-  finally { processButton.disabled = false; $('downloadPasscode').value = ''; setTimeout(() => { $('progress').hidden = true; $('bar').style.width = '0%'; }, 1400); }
+  finally { processButton.disabled = false; setTimeout(() => { $('progress').hidden = true; $('bar').style.width = '0%'; }, 1400); }
 });
 updatePreview();
