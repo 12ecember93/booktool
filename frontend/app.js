@@ -210,7 +210,7 @@ $('downloadBat').addEventListener('click', () => {
   link.href = objectUrl; link.download = name + '_download.bat';
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-  setStatus('Đã tải file .bat cho Windows. Lưu file, nhấp đúp để chạy; thư mục ảnh và PDF sẽ được tạo cạnh file .bat theo tên ' + name + '. Cần có Microsoft Edge hoặc Chrome để tạo PDF.', 'ok');
+  setStatus('Đã tải file .bat cho Windows. Lưu file, nhấp đúp để chạy; thư mục ảnh và PDF sẽ được tạo cạnh file .bat theo tên ' + name + '.', 'ok');
 });
 async function copySourceZipCode() {
   const code=$('sourceCode').value || $('sourceCode').textContent;
