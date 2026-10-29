@@ -18,14 +18,21 @@ function updatePreview() { preparedUrls = sortUrls(extractUrls($('urls').value))
 $('urls').addEventListener('input', updatePreview); $('sortPages').addEventListener('change', updatePreview); $('removeDuplicates').addEventListener('change', updatePreview);
 $('checkUrls').addEventListener('click', () => { const urls = updatePreview(); setStatus(urls.length ? 'Đã trích xuất ' + urls.length + ' URL. Backend sẽ kiểm tra nội dung ảnh thực tế.' : 'Không tìm thấy URL. Hãy dán danh sách URL hoặc nội dung Console/HTML.', urls.length ? 'ok' : 'error'); });
 $('clear').addEventListener('click', () => { $('urls').value = ''; updatePreview(); setStatus(''); });
-async function copyExtractCode() { try { await navigator.clipboard.writeText($('extractCode').innerText); setStatus('Đã sao chép mã Console. Trên máy tính: mở trang sách → F12 → Console → dán mã → Enter.', 'ok'); } catch { $('extractCode').closest('details').open = true; setStatus('Trình duyệt không cho tự sao chép. Mã đã được mở bên hướng dẫn; hãy chọn và sao chép thủ công.', 'error'); } }
+const extractCodeText = String.raw`(() => {
+  const html = document.documentElement.outerHTML.replace(/\\\//g, "/");
+  const found = html.match(/https?:\/\/[^"'<>\s]+/g) || [];
+  const urls = [...new Set(found.map(u => u.replace(/[),;\]}]+$/, "")))].filter(u => /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(u) || /-page-\d+-/i.test(u));
+  copy(urls.join("\n"));
+  console.log("Đã copy " + urls.length + " URL ảnh vào clipboard.");
+})();`;
+$('extractCode').textContent = extractCodeText;
 async function copyExtractCode() {
-  const code = $('extractCode').textContent.trim();
   try {
-    await navigator.clipboard.writeText(code);
-    setStatus('Đã sao chép MÃ JAVASCRIPT. Hãy mở tab trang sách → mở Developer Tools → chọn Console → dán mã → Enter.', 'ok');
+    await navigator.clipboard.writeText(extractCodeText);
+    setStatus('Đã sao chép đúng mã JavaScript. Mở tab trang sách → mở Developer Tools → chọn Console → dán mã → Enter.', 'ok');
   } catch {
     $('extractCode').closest('details').open = true;
+    $('extractCode').textContent = extractCodeText;
     try {
       const range = document.createRange();
       range.selectNodeContents($('extractCode'));
