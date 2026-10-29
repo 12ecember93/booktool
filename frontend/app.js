@@ -19,6 +19,23 @@ $('urls').addEventListener('input', updatePreview); $('sortPages').addEventListe
 $('checkUrls').addEventListener('click', () => { const urls = updatePreview(); setStatus(urls.length ? 'Đã trích xuất ' + urls.length + ' URL. Backend sẽ kiểm tra nội dung ảnh thực tế.' : 'Không tìm thấy URL. Hãy dán danh sách URL hoặc nội dung Console/HTML.', urls.length ? 'ok' : 'error'); });
 $('clear').addEventListener('click', () => { $('urls').value = ''; updatePreview(); setStatus(''); });
 async function copyExtractCode() { try { await navigator.clipboard.writeText($('extractCode').innerText); setStatus('Đã sao chép mã Console. Trên máy tính: mở trang sách → F12 → Console → dán mã → Enter.', 'ok'); } catch { $('extractCode').closest('details').open = true; setStatus('Trình duyệt không cho tự sao chép. Mã đã được mở bên hướng dẫn; hãy chọn và sao chép thủ công.', 'error'); } }
+async function copyExtractCode() {
+  const code = $('extractCode').textContent.trim();
+  try {
+    await navigator.clipboard.writeText(code);
+    setStatus('Đã sao chép MÃ JAVASCRIPT. Hãy mở tab trang sách → mở Developer Tools → chọn Console → dán mã → Enter.', 'ok');
+  } catch {
+    $('extractCode').closest('details').open = true;
+    try {
+      const range = document.createRange();
+      range.selectNodeContents($('extractCode'));
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } catch {}
+    setStatus('Không thể tự sao chép. Mã JavaScript đã được mở và chọn sẵn; hãy sao chép thủ công bằng Ctrl+C (Mac: Cmd+C).', 'error');
+  }
+}
 $('copyCode').addEventListener('click', copyExtractCode);
 $('copyCodeGuide').addEventListener('click', copyExtractCode);
 processButton.addEventListener('click', async () => {
