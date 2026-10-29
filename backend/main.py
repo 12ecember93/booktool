@@ -1,7 +1,7 @@
-import io, hmac, ipaddress, os, re, socket, zipfile
+import io, ipaddress, os, re, socket, zipfile
 from urllib.parse import urlparse
 import httpx
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -12,7 +12,6 @@ MAX_URLS = int(os.getenv('MAX_URLS', '250'))
 MAX_IMAGE_BYTES = int(os.getenv('MAX_IMAGE_BYTES', str(20 * 1024 * 1024)))
 MAX_TOTAL_BYTES = int(os.getenv('MAX_TOTAL_BYTES', str(400 * 1024 * 1024)))
 FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN', 'https://12ecember93.github.io')
-BOOKTOOL_PASSWORD = os.getenv('BOOKTOOL_PASSWORD', '')
 app = FastAPI(title=APP_TITLE, version='1.2.0')
 origins = ['*'] if FRONTEND_ORIGIN == '*' else [x.strip() for x in FRONTEND_ORIGIN.split(',') if x.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False, allow_methods=['GET','POST','OPTIONS'], allow_headers=['Content-Type','X-Tool-Password'])
@@ -59,16 +58,12 @@ def to_rgb(data):
             rgba=im.convert('RGBA'); bg=Image.new('RGB', rgba.size, 'white'); bg.paste(rgba, mask=rgba.getchannel('A')); im=bg
         else: im=im.convert('RGB')
     return im
-def require_password(supplied):
-    if not BOOKTOOL_PASSWORD: raise HTTPException(status_code=503, detail='Backend chưa được cấu hình BOOKTOOL_PASSWORD.')
-    if not supplied or not hmac.compare_digest(supplied, BOOKTOOL_PASSWORD): raise HTTPException(status_code=401, detail='Passcode không đúng hoặc không được cung cấp.')
 @app.get('/')
 def root(): return {'service':APP_TITLE,'status':'ok','health':'/health'}
 @app.get('/health')
 def health(): return {'status':'ok'}
 @app.post('/api/build-zip')
-async def build_zip(request: BuildRequest, x_tool_password: str | None = Header(default=None)):
-    require_password(x_tool_password)
+async def build_zip(request: BuildRequest):
     raw=clean_urls(request.urls)
     if not raw: raise HTTPException(400, 'Không tìm thấy URL HTTP/HTTPS trong nội dung đã dán.')
     if len(raw)>MAX_URLS: raise HTTPException(400, 'Tối đa '+str(MAX_URLS)+' URL mỗi lần.')
