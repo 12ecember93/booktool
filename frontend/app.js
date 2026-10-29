@@ -18,7 +18,9 @@ function updatePreview() { preparedUrls = sortUrls(extractUrls($('urls').value))
 $('urls').addEventListener('input', updatePreview); $('sortPages').addEventListener('change', updatePreview); $('removeDuplicates').addEventListener('change', updatePreview);
 $('checkUrls').addEventListener('click', () => { const urls = updatePreview(); setStatus(urls.length ? 'Đã trích xuất ' + urls.length + ' URL. Backend sẽ kiểm tra nội dung ảnh thực tế.' : 'Không tìm thấy URL. Hãy dán danh sách URL hoặc nội dung Console/HTML.', urls.length ? 'ok' : 'error'); });
 $('clear').addEventListener('click', () => { $('urls').value = ''; updatePreview(); setStatus(''); });
-async function copyExtractCode() { try { await navigator.clipboard.writeText($('extractCode').innerText); setStatus('Đã sao chép mã Console. Trên máy tính: mở trang sách → F12 → Console → dán mã → Enter.', 'ok'); } catch { $('extractCode').closest('details').open = true; setStatus('Trình duyệt không cho tự sao chép. Mã đã được mở bên hướng dẫn; hãy chọn và sao chép thủ công.', 'error'); } }\n$('copyCode').addEventListener('click', copyExtractCode);\n$('copyCodeGuide').addEventListener('click', copyExtractCode);
+async function copyExtractCode() { try { await navigator.clipboard.writeText($('extractCode').innerText); setStatus('Đã sao chép mã Console. Trên máy tính: mở trang sách → F12 → Console → dán mã → Enter.', 'ok'); } catch { $('extractCode').closest('details').open = true; setStatus('Trình duyệt không cho tự sao chép. Mã đã được mở bên hướng dẫn; hãy chọn và sao chép thủ công.', 'error'); } }
+$('copyCode').addEventListener('click', copyExtractCode);
+$('copyCodeGuide').addEventListener('click', copyExtractCode);
 processButton.addEventListener('click', async () => {
   const api = $('api').value.trim().replace(/\/+$/, ''); const urls = updatePreview(); const name = $('bookname').value.trim() || 'SGK_Sach';
   if (!api) return setStatus('Nhập Backend API URL sau khi deploy.', 'error');
