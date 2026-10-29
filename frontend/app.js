@@ -95,6 +95,7 @@ function makeWindowsBat(urls, outputName) {
   const psLines = [
     'param([string]$BatPath)',
     '$ErrorActionPreference = "Stop"',
+    '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
     '$all = Get-Content -LiteralPath $BatPath',
     '$marker = [Array]::IndexOf($all, "#--URLS--")',
     'if ($marker -lt 0) { throw "URL list missing from BAT." }',
@@ -114,7 +115,7 @@ function makeWindowsBat(urls, outputName) {
     '    $ext = [IO.Path]::GetExtension($uri.AbsolutePath)',
     '    if ($ext -notmatch "^\\.(png|jpe?g|webp|gif|avif|bmp|tiff?)$") { $ext = ".img" }',
     '    $dest = Join-Path $outDir ("{0:D3}-image{1}" -f ($n+1), $ext)',
-    '    Invoke-WebRequest -Uri $u -OutFile $dest -TimeoutSec 60 -Headers @{"User-Agent"="Mozilla/5.0"}',
+    '    Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $dest -TimeoutSec 60 -Headers @{"User-Agent"="Mozilla/5.0"; "Referer"="https://taphuan.nxbgd.vn/"}',
     '    if ((Get-Item -LiteralPath $dest).Length -eq 0) { throw "Empty file" }',
     '    $ok++',
     '  } catch { $bad.Add(("{0}. {1} -- {2}" -f ($n+1), $u, $_.Exception.Message)) }',
