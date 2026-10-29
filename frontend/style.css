@@ -16,3 +16,5 @@
 .download-actions .action-button.bat-button{background:#0879f9!important;color:#fff!important;border:1px solid #0879f9!important}
 .download-actions .action-button:hover{background:#0668d8!important}
 .download-actions .action-button small{color:#fff!important;opacity:.9}
+
+#status{margin-top:7px}.progress-panel{margin-top:7px}#sourceCodeWrap{margin-top:8px}#copyZipCode{margin-bottom:7px}
