@@ -132,7 +132,7 @@ function makeWindowsBat(urls, outputName) {
     'setlocal',
     'title Download images and create ZIP',
     'echo Downloading images. Please wait...',
-    'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p=''%~f0''; $c=Get-Content -LiteralPath $p; $a=[Array]::IndexOf($c,''#--PS--''); $b=[Array]::IndexOf($c,''#--URLS--''); if($a -lt 0 -or $b -le $a){throw ''Invalid BAT format''}; $f=Join-Path $env:TEMP ([guid]::NewGuid().ToString()+''.ps1''); $c[($a+1)..($b-1)] | Set-Content -LiteralPath $f -Encoding UTF8; & $f -BatPath $p; Remove-Item -LiteralPath $f -Force"',
+    `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p='%~f0'; $c=Get-Content -LiteralPath $p; $a=[Array]::IndexOf($c,'#--PS--'); $b=[Array]::IndexOf($c,'#--URLS--'); if($a -lt 0 -or $b -le $a){throw 'Invalid BAT format'}; $f=Join-Path $env:TEMP ([guid]::NewGuid().ToString()+'.ps1'); $c[($a+1)..($b-1)] | Set-Content -LiteralPath $f -Encoding UTF8; & $f -BatPath $p; Remove-Item -LiteralPath $f -Force"`,
     'if errorlevel 1 echo Error running PowerShell. Check the messages above.',
     'pause',
     'exit /b',
@@ -140,7 +140,7 @@ function makeWindowsBat(urls, outputName) {
     ...psLines,
     '#--URLS--',
     ...urls
-  ].join('\\r\\n') + '\\r\\n';
+  ].join('\r\n') + '\r\n';
 }
 $('downloadBat').addEventListener('click', () => {
   const urls = updatePreview();
