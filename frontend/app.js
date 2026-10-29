@@ -172,7 +172,7 @@ $('downloadBat').addEventListener('click', () => {
   link.href = objectUrl; link.download = name + '_download.bat';
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-  setStatus('Đã tải file .bat cho Windows. Lưu file, nhấp đúp để chạy; ZIP sẽ được tạo cạnh file .bat với tên ' + name + '.zip. Không chạy file nếu bạn chưa kiểm tra danh sách URL.', 'ok');
+  setStatus('Đã tải file .bat cho Windows. Lưu file, nhấp đúp để chạy; thư mục ảnh và PDF sẽ được tạo cạnh file .bat theo tên ' + name + '. Cần có Microsoft Edge hoặc Chrome để tạo PDF.', 'ok');
 });
 async function copySourceZipCode() {
   const code=$('sourceCode').value || $('sourceCode').textContent;
@@ -236,7 +236,7 @@ processButton.addEventListener('click', async () => {
     const link = document.createElement('a'); const objectUrl = URL.createObjectURL(blob); link.href = objectUrl; link.download = name + '.zip'; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     $('bar').style.width = '100%'; $('p5').classList.add('active');
     $('log').textContent += '\\nZIP đã sẵn sàng. Thành công: ' + done + ', lỗi: ' + failed.length + '.';
-    setStatus('Hoàn tất: đã tải ' + name + '.zip (' + done + ' ảnh). ' + (failed.length ? failed.length + ' URL lỗi được liệt kê trong bao-cao.txt.' : ''), failed.length ? 'error' : 'ok');
+    setStatus('Hoàn tất: đã tải ' + name + '.zip (' + done + ' ảnh).', failed.length ? 'error' : 'ok');
   } catch (err) {
     $('log').textContent += '\\nLỗi: ' + err.message;
     setStatus('Không tạo được ZIP: ' + err.message, 'error');
