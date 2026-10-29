@@ -86,6 +86,36 @@ function makeSourceDownloadCode(urls, filename) {
     } catch(e) { msg.textContent='Lỗi: '+e.message; log.textContent='Thao tác chưa hoàn tất. Giữ nguyên trang và kiểm tra thông báo này.'; }
   })();`;
 }
+function makeWindowsBat(urls, outputName) {
+  const safeName = outputName.replace(/\.zip$/i, '').replace(/[^A-Za-z0-9._ -]/g, '_').trim() || 'SGK_Sach';
+  const ps = "$p=$args[0]; $c=Get-Content -LiteralPath $p; $i=[Array]::IndexOf($c,'#--URLS--'); if($i -lt 0){Write-Host 'URL list missing'; exit 2}; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $urls=@($c[($i+1)..($c.Length-1)] | Where-Object { $_ -match '^https?://' }); $name='" + safeName.replace(/'/g, "''") + "'; $root=Split-Path -Parent $p; $work=Join-Path $env:TEMP ([Guid]::NewGuid().ToString()); New-Item -ItemType Directory -Path (Join-Path $work 'Anh') -Force | Out-Null; $bad=New-Object System.Collections.Generic.List[string]; $ok=0; for($n=0;$n -lt $urls.Count;$n++){ $u=$urls[$n].Trim(); Write-Progress -Activity 'Downloading images' -Status ('URL '+($n+1)+'/'+$urls.Count+' | success '+$ok+' | failed '+$bad.Count) -PercentComplete ([int](($n+1)*100/[Math]::Max(1,$urls.Count))); try { $uri=[Uri]$u; $ext=[IO.Path]::GetExtension($uri.AbsolutePath); if($ext -notmatch '^\\.(png|jpe?g|webp|gif|avif|bmp|tiff?)$'){ $ext='.img' }; $dest=Join-Path (Join-Path $work 'Anh') (('{0:D3}-image{1}' -f ($n+1),$ext)); Invoke-WebRequest -Uri $u -OutFile $dest -UseBasicParsing -TimeoutSec 60 -Headers @{'User-Agent'='Mozilla/5.0'}; if((Get-Item $dest).Length -eq 0){throw 'Empty file'}; $ok++ } catch { $bad.Add((($n+1).ToString()+'. '+$u+' -- '+$_.Exception.Message)) } }; $report=@('URLs: '+$urls.Count,'Downloaded: '+$ok,'Failed: '+$bad.Count,'') + $bad; Set-Content -LiteralPath (Join-Path $work 'bao-cao.txt') -Value $report -Encoding UTF8; if($ok -gt 0){ $zip=Join-Path $root ($name+'.zip'); if(Test-Path $zip){Remove-Item $zip -Force}; Compress-Archive -Path (Join-Path $work '*') -DestinationPath $zip -Force; Write-Host ('Done: '+$zip); Write-Host ('Success: '+$ok+' | Failed: '+$bad.Count) } else { Write-Host 'No images downloaded. Check URL access.'; Write-Host ($bad -join [Environment]::NewLine) }; Remove-Item $work -Recurse -Force; Read-Host 'Press Enter to close'";
+  return [
+    '@echo off',
+    'setlocal',
+    'title Download images and create ZIP',
+    'echo Downloading images and creating ZIP. Please wait...',
+    'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "' + ps.replace(/"/g, '""') + '" "%~f0"',
+    'if errorlevel 1 echo Failed. Check the messages above.',
+    'pause',
+    'exit /b',
+    '#--URLS--',
+    ...urls
+  ].join('\r\n') + '\r\n';
+}
+$('downloadBat').addEventListener('click', () => {
+  const urls = updatePreview();
+  const name = ($('bookname').value.trim() || 'SGK_Sach').replace(/\.zip$/i, '').replace(/[^A-Za-z0-9._ -]/g, '_').trim() || 'SGK_Sach';
+  if (!urls.length) return setStatus('Chưa tìm thấy URL. Hãy dán danh sách trước.', 'error');
+  if (urls.length > 250) return setStatus('Tối đa 250 URL mỗi lần.', 'error');
+  const bat = makeWindowsBat(urls, name);
+  const blob = new Blob(['\ufeff', bat], {type:'text/plain;charset=utf-8'});
+  const link = document.createElement('a');
+  const objectUrl = URL.createObjectURL(blob);
+  link.href = objectUrl; link.download = name + '_download.bat';
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+  setStatus('Đã tải file .bat cho Windows. Lưu file, nhấp đúp để chạy; ZIP sẽ được tạo cạnh file .bat với tên ' + name + '.zip. Không chạy file nếu bạn chưa kiểm tra danh sách URL.', 'ok');
+});
 $('sourceZip').addEventListener('click', async () => {
   const urls=updatePreview();
   const name=($('bookname').value.trim()||'SGK_Sach').replace(/[^\\p{L}\\p{N}._ -]+/gu,'_').replace(/\\s+/g,'_');
