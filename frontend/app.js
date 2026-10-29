@@ -245,4 +245,7 @@ processButton.addEventListener('click', async () => {
     setTimeout(() => { $('progress').hidden = true; $('bar').style.width = '0%'; }, 1800);
   }
 });
+function refreshOutputName() { $('outputNamePreview').textContent = getOutputName(); }
+['nameRoot','nameNo','nameType'].forEach(id => $(id).addEventListener('input', refreshOutputName));
+refreshOutputName();
 updatePreview();
