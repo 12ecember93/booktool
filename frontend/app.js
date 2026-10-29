@@ -78,16 +78,20 @@ function makeSourceDownloadCode(urls, filename) {
         log.textContent='Thành công: '+done+' · Lỗi: '+failed.length+' · '+(i+1)+'/'+urls.length;
       }
       if(!done) throw new Error('Không tải được ảnh nào. Kiểm tra quyền truy cập trang sách.');
-      zip.file('bao-cao.txt','Tổng URL: '+urls.length+'\\nTải được: '+done+'\\nLỗi: '+failed.length+'\\n\\n'+failed.join('\\n'));
+
       msg.textContent='Đang đóng ZIP…'; log.textContent='Đã tải '+done+' ảnh. Đang nén…';
       const blob=await zip.generateAsync({type:'blob'},m=>bar.style.width=(75+Math.round(m.percent*.25))+'%');
       const a=document.createElement('a'), objectUrl=URL.createObjectURL(blob); a.href=objectUrl; a.download=filename+'.zip'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
-      msg.textContent='Hoàn tất — đã tải '+filename+'.zip'; bar.style.width='100%'; log.textContent='Ảnh thành công: '+done+' · Lỗi: '+failed.length+'. Xem bao-cao.txt trong ZIP.';
+      msg.textContent='Hoàn tất — đã tải '+filename+'.zip'; bar.style.width='100%'; log.textContent='Ảnh thành công: '+done+' · Lỗi: '+failed.length+'.';
     } catch(e) { msg.textContent='Lỗi: '+e.message; log.textContent='Thao tác chưa hoàn tất. Giữ nguyên trang và kiểm tra thông báo này.'; }
   })();`;
 }
+function getOutputName() {
+  const clean = value => value.trim().replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/[. ]+$/g, '');
+  return '[' + clean($('nameRoot').value || 'GS') + '] - ' + clean($('nameNo').value || '02') + ' - ' + clean($('nameType').value || 'SGK');
+}
 function makeWindowsBat(urls, outputName) {
-  const safeName = outputName.replace(/\.zip$/i, '').replace(/[^A-Za-z0-9._ -]/g, '_').trim() || 'SGK_Sach';
+  const safeName = outputName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/[. ]+$/g, '').trim() || 'SGK_Sach';
   const psLines = [
     'param([string]$BatPath)',
     '$ErrorActionPreference = "Stop"',
@@ -100,7 +104,6 @@ function makeWindowsBat(urls, outputName) {
     '$outDir = Join-Path $root $name',
     'if (Test-Path -LiteralPath $outDir) { Remove-Item -LiteralPath $outDir -Recurse -Force }',
     'New-Item -ItemType Directory -Path $outDir -Force | Out-Null',
-    '$imgDir = $outDir',
     '$bad = New-Object System.Collections.Generic.List[string]',
     '$ok = 0',
     'for ($n = 0; $n -lt $urls.Count; $n++) {',
@@ -116,10 +119,27 @@ function makeWindowsBat(urls, outputName) {
     '    $ok++',
     '  } catch { $bad.Add(("{0}. {1} -- {2}" -f ($n+1), $u, $_.Exception.Message)) }',
     '}',
-    '$report = @("URLs: $($urls.Count)", "Downloaded: $ok", "Failed: $($bad.Count)", "") + $bad',
-    'Set-Content -LiteralPath (Join-Path $outDir "bao-cao.txt") -Value $report -Encoding UTF8',
     'if ($ok -gt 0) {',
-    '  Write-Host ("Images folder: " + $outDir) -ForegroundColor Green',
+    "  try {",
+    "    $pdfFiles = @(Get-ChildItem -LiteralPath $outDir -File | Where-Object { $_.Extension -match \"^\\.(png|jpe?g|bmp|gif|tiff?)$\" } | Sort-Object Name)",
+    "    $edge = Get-Command msedge.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source",
+    "    if (-not $edge) { $paths = @(\"$env:ProgramFiles(x86)\\Microsoft\\Edge\\Application\\msedge.exe\", \"$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe\", \"$env:ProgramFiles\\Google\\Chrome\\Application\\chrome.exe\", \"$env:ProgramFiles(x86)\\Google\\Chrome\\Application\\chrome.exe\"); $edge = $paths | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1 }",
+    "    if ($edge -and $pdfFiles.Count -gt 0) {",
+    "      $htmlPath = Join-Path $env:TEMP ([Guid]::NewGuid().ToString() + \".html\")",
+    "      $pdfPath = Join-Path $root ($name + \".pdf\")",
+    "      $html = '<html><head><meta charset=\"utf-8\"><style>@page{size:A4;margin:0}body{margin:0}.page{height:297mm;width:210mm;display:flex;align-items:center;justify-content:center;page-break-after:always}.page img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body>'",
+    "      foreach ($img in $pdfFiles) { $uri = ([Uri]$img.FullName).AbsoluteUri; $html += '<div class=\"page\"><img src=\"' + $uri + '\"></div>' }",
+    "      $html += '</body></html>'",
+    "      Set-Content -LiteralPath $htmlPath -Value $html -Encoding UTF8",
+    "      $profile = Join-Path $env:TEMP ([Guid]::NewGuid().ToString())",
+    "      Start-Process -FilePath $edge -ArgumentList @(\"--headless\", \"--disable-gpu\", \"--no-pdf-header-footer\", \"--user-data-dir=$profile\", \"--print-to-pdf=$pdfPath\", ([Uri]$htmlPath).AbsoluteUri) -Wait | Out-Null",
+    "      Start-Sleep -Milliseconds 800",
+    "      if (Test-Path -LiteralPath $pdfPath) { Write-Host (\"PDF created: \" + $pdfPath) -ForegroundColor Green } else { Write-Host \"PDF was not created by Edge/Chrome.\" -ForegroundColor Yellow }",
+    "      Remove-Item -LiteralPath $htmlPath -Force -ErrorAction SilentlyContinue",
+    "      Remove-Item -LiteralPath $profile -Recurse -Force -ErrorAction SilentlyContinue",
+    "    } else { Write-Host \"PDF skipped: Edge/Chrome or supported images not found.\" -ForegroundColor Yellow }",
+    "  } catch { Write-Host (\"PDF error: \" + $_.Exception.Message) -ForegroundColor Yellow }",
+    "  Write-Host (\"Images folder: \" + $outDir)",
     '  Write-Host ("Success: $ok / $($urls.Count); failed: $($bad.Count)")',
     '} else { Write-Host "No images downloaded. Check URLs and access." -ForegroundColor Red; $bad | ForEach-Object { Write-Host $_ } }',
     'Write-Host "This window will close in 5 seconds..."',
@@ -142,7 +162,7 @@ function makeWindowsBat(urls, outputName) {
 }
 $('downloadBat').addEventListener('click', () => {
   const urls = updatePreview();
-  const name = ($('bookname').value.trim() || 'SGK_Sach').replace(/\.zip$/i, '').replace(/[^A-Za-z0-9._ -]/g, '_').trim() || 'SGK_Sach';
+  const name = getOutputName();
   if (!urls.length) return setStatus('Chưa tìm thấy URL. Hãy dán danh sách trước.', 'error');
   if (urls.length > 250) return setStatus('Tối đa 250 URL mỗi lần.', 'error');
   const bat = makeWindowsBat(urls, name);
@@ -162,7 +182,7 @@ async function copySourceZipCode() {
 $('copyZipCode').addEventListener('click', copySourceZipCode);
 $('sourceZip').addEventListener('click', async () => {
   const urls=updatePreview();
-  const name=($('bookname').value.trim()||'SGK_Sach').replace(/[^\\p{L}\\p{N}._ -]+/gu,'_').replace(/\\s+/g,'_');
+  const name=getOutputName();
   if(!urls.length) return setStatus('Chưa tìm thấy URL. Hãy dán danh sách trước.','error');
   if(urls.length>250) return setStatus('Tối đa 250 URL mỗi lần.','error');
   const code=makeSourceDownloadCode(urls,name);
@@ -173,7 +193,7 @@ $('sourceZip').addEventListener('click', async () => {
 });
 processButton.addEventListener('click', async () => {
   const urls = updatePreview();
-  const name = ($('bookname').value.trim() || 'SGK_Sach').replace(/[^\\p{L}\\p{N}._ -]+/gu, '_').replace(/\\s+/g, '_');
+  const name = getOutputName();
   if (!urls.length) return setStatus('Chưa tìm thấy URL. Hãy dán danh sách URL trước.', 'error');
   if (urls.length > 250) return setStatus('Tối đa 250 URL mỗi lần.', 'error');
   if (typeof JSZip === 'undefined') return setStatus('Không tải được thư viện ZIP. Kiểm tra kết nối Internet rồi tải lại trang.', 'error');
@@ -209,7 +229,7 @@ processButton.addEventListener('click', async () => {
     }
     if (!done) throw new Error('Không tải được ảnh nào vì website nguồn chặn CORS. Cần chạy thao tác tải ZIP ngay trong tab website nguồn; tải trực tiếp từ trang công cụ này sẽ bị trình duyệt chặn.');
     $('p3').classList.add('active');
-    zip.file('bao-cao.txt', 'URL ban đầu: ' + urls.length + '\\nẢnh tải được: ' + done + '\\nURL lỗi: ' + failed.length + '\\n\\n' + failed.join('\\n'));
+
     setStatus('Đã tải ' + done + '/' + urls.length + ' ảnh. Đang đóng ZIP…');
     const blob = await zip.generateAsync({type:'blob'}, meta => { $('bar').style.width = (75 + Math.round(meta.percent * 0.24)) + '%'; });
     $('p4').classList.add('active');
