@@ -5,9 +5,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError
 
-APP_TITLE = 'Get images to PDF tool API'
+APP_TITLE = 'Get images to ZIP tool API'
 MAX_URLS = int(os.getenv('MAX_URLS', '250'))
 MAX_IMAGE_BYTES = int(os.getenv('MAX_IMAGE_BYTES', str(20 * 1024 * 1024)))
 MAX_TOTAL_BYTES = int(os.getenv('MAX_TOTAL_BYTES', str(400 * 1024 * 1024)))
@@ -51,13 +51,6 @@ def clean_urls(urls):
             u=m.rstrip('),;]}').strip()
             if u and u not in out: out.append(u)
     return out
-def to_rgb(data):
-    im=Image.open(io.BytesIO(data)); im.load(); im=ImageOps.exif_transpose(im)
-    if im.mode != 'RGB':
-        if 'A' in im.getbands():
-            rgba=im.convert('RGBA'); bg=Image.new('RGB', rgba.size, 'white'); bg.paste(rgba, mask=rgba.getchannel('A')); im=bg
-        else: im=im.convert('RGB')
-    return im
 @app.get('/')
 def root(): return {'service':APP_TITLE,'status':'ok','health':'/health'}
 @app.get('/health')
@@ -89,22 +82,22 @@ async def build_zip(request: BuildRequest):
                             if len(data)>MAX_IMAGE_BYTES: raise RuntimeError('Ảnh vượt giới hạn 20 MB.')
                         if not ct.startswith('image/'): skipped.append(u[:120]+' — bỏ qua Content-Type '+(ct or 'không xác định')); result='skip'; break
                         if not data: raise RuntimeError('File rỗng.')
-                        try: im=to_rgb(bytes(data))
+                        try:
+                            im=Image.open(io.BytesIO(data)); im.verify()
                         except (UnidentifiedImageError,OSError) as e: raise RuntimeError('Nội dung trả về không phải ảnh hợp lệ.') from e
                         total+=len(data)
                         if total>MAX_TOTAL_BYTES: raise RuntimeError('Tổng dung lượng ảnh vượt giới hạn xử lý.')
-                        result=(u,bytes(data),im); break
+                        result=(u,bytes(data)); break
                 except Exception as e: last_error=str(e)
             if result=='skip': continue
             if result is None:
                 if re.search(r'\.(png|jpe?g|webp|gif|avif|bmp|tiff?)(?:$|[?#])|-page-\d+-',u,re.I): problems.append(u[:150]+' — '+(last_error or 'tải thất bại'))
                 else: skipped.append(u[:120]+' — không tải được, đã bỏ qua')
                 continue
-            images.append((page_number(result[0],idx),result[0],result[1],result[2]))
+            images.append((page_number(result[0],idx),result[0],result[1]))
     if not images: raise HTTPException(502, 'Không tải được ảnh nào. Kiểm tra URL, quyền truy cập hoặc chống bot của website nguồn.\n'+'\n'.join(problems[:8]))
     if problems: raise HTTPException(502, 'Có URL trông giống ảnh nhưng tải thất bại; không tạo ZIP để tránh thiếu trang:\n'+'\n'.join(problems[:10]))
     images.sort(key=lambda x:(x[0],x[1])); stem=safe_filename(request.filename)
-    pdf=io.BytesIO(); pil=[x[3] for x in images]; pil[0].save(pdf,format='PDF',save_all=True,append_images=pil[1:],resolution=150.0)
     out=io.BytesIO()
     with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for i,item in enumerate(images,1):
@@ -112,8 +105,7 @@ async def build_zip(request: BuildRequest):
             except Exception: fmt=None
             ext={'JPEG':'.jpg','PNG':'.png','WEBP':'.webp','GIF':'.gif','BMP':'.bmp','TIFF':'.tif','AVIF':'.avif'}.get(fmt,'.img')
             z.writestr('Anh/page-'+str(i).zfill(3)+ext,item[2])
-        z.writestr(stem+'.pdf',pdf.getvalue())
-        lines=['Get images to PDF tool - manifest','URLs found: '+str(len(raw)),'Images included: '+str(len(images)),'Other URLs skipped: '+str(len(skipped)),'']
+        lines=['Get images to ZIP tool - manifest','URLs found: '+str(len(raw)),'Images included: '+str(len(images)),'Other URLs skipped: '+str(len(skipped)),'']
         lines += [str(i).zfill(3)+'\tpage='+str(x[0])+'\t'+x[1] for i,x in enumerate(images,1)]
         if skipped: lines += ['', 'Skipped URLs:']+skipped
         z.writestr('manifest.txt','\n'.join(lines))
