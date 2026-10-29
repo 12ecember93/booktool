@@ -14,9 +14,9 @@ function extractUrls(text) {
   return $('removeDuplicates').checked ? [...new Set(result)] : result;
 }
 function sortUrls(urls) { if (!$('sortPages').checked) return urls; const page = u => { const m = u.match(/-page-(\d+)-/i) || u.match(/[?&#](?:page|p)=(\d+)/i) || u.match(/(?:page|pageNo)[/_=-](\d+)/i); return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER; }; return [...urls].sort((a,b) => page(a)-page(b) || a.localeCompare(b)); }
-function updatePreview() { preparedUrls = sortUrls(extractUrls($('urls').value)); $('urlCount').textContent = preparedUrls.length + ' URL candidate(s)'; $('urlPreview').hidden = !preparedUrls.length; $('urlPreview').textContent = preparedUrls.slice(0,8).join('\n') + (preparedUrls.length > 8 ? '\n… và ' + (preparedUrls.length-8) + ' URL khác' : ''); return preparedUrls; }
+function updatePreview() { preparedUrls = sortUrls(extractUrls($('urls').value)); $('urlCount').textContent = preparedUrls.length + ' URL ảnh'; return preparedUrls; }
 $('urls').addEventListener('input', updatePreview); $('sortPages').addEventListener('change', updatePreview); $('removeDuplicates').addEventListener('change', updatePreview);
-$('checkUrls').addEventListener('click', () => { const urls = updatePreview(); setStatus(urls.length ? 'Đã trích xuất ' + urls.length + ' URL. Backend sẽ kiểm tra nội dung ảnh thực tế.' : 'Không tìm thấy URL. Hãy dán danh sách URL hoặc nội dung Console/HTML.', urls.length ? 'ok' : 'error'); });
+$('checkUrls').addEventListener('click', () => { const urls = updatePreview(); setStatus(urls.length ? 'Đã nhận ' + urls.length + ' URL. Bấm Tải ZIP ảnh để tiếp tục.' : 'Không tìm thấy URL. Hãy dán danh sách URL hoặc nội dung Console/HTML.', urls.length ? 'ok' : 'error'); });
 $('clear').addEventListener('click', () => { $('urls').value = ''; updatePreview(); setStatus(''); });
 const extractCodeText = String.raw`(() => {
   const html = document.documentElement.outerHTML.replace(/\\\//g, "/");
@@ -80,7 +80,7 @@ processButton.addEventListener('click', async () => {
       $('log').textContent = 'Đã tải ' + (i + 1) + '/' + urls.length + ' URL. Thành công: ' + done + '. Lỗi: ' + failed.length + '.';
       $('p2').classList.add('active');
     }
-    if (!done) throw new Error('Không tải được ảnh nào. Website nguồn có thể chặn CORS; hãy thử lấy URL khác hoặc tải ảnh từ chính website nguồn.');
+    if (!done) throw new Error('Không tải được ảnh nào vì website nguồn chặn CORS. Cần chạy thao tác tải ZIP ngay trong tab website nguồn; tải trực tiếp từ trang công cụ này sẽ bị trình duyệt chặn.');
     $('p3').classList.add('active');
     zip.file('bao-cao.txt', 'URL ban đầu: ' + urls.length + '\\nẢnh tải được: ' + done + '\\nURL lỗi: ' + failed.length + '\\n\\n' + failed.join('\\n'));
     setStatus('Đã tải ' + done + '/' + urls.length + ' ảnh. Đang đóng ZIP…');
