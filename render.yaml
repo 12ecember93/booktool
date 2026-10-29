@@ -14,5 +14,3 @@ services:
         value: https://12ecember93.github.io
       - key: MAX_URLS
         value: "250"
-      - key: BOOKTOOL_PASSWORD
-        sync: false
