@@ -95,11 +95,12 @@ function makeWindowsBat(urls, outputName) {
     '$marker = [Array]::IndexOf($all, "#--URLS--")',
     'if ($marker -lt 0) { throw "URL list missing from BAT." }',
     '$urls = @($all[($marker + 1)..($all.Length - 1)] | Where-Object { $_ -match "^https?://" })',
-    '$name = "' + safeName + '"',
+    "$name = '" + safeName.replace(/'/g, "''") + "'",
     '$root = Split-Path -Parent $BatPath',
-    '$work = Join-Path $env:TEMP ([Guid]::NewGuid().ToString())',
-    '$imgDir = Join-Path $work "Anh"',
-    'New-Item -ItemType Directory -Path $imgDir -Force | Out-Null',
+    '$outDir = Join-Path $root $name',
+    'if (Test-Path -LiteralPath $outDir) { Remove-Item -LiteralPath $outDir -Recurse -Force }',
+    'New-Item -ItemType Directory -Path $outDir -Force | Out-Null',
+    '$imgDir = $outDir',
     '$bad = New-Object System.Collections.Generic.List[string]',
     '$ok = 0',
     'for ($n = 0; $n -lt $urls.Count; $n++) {',
@@ -116,16 +117,13 @@ function makeWindowsBat(urls, outputName) {
     '  } catch { $bad.Add(("{0}. {1} -- {2}" -f ($n+1), $u, $_.Exception.Message)) }',
     '}',
     '$report = @("URLs: $($urls.Count)", "Downloaded: $ok", "Failed: $($bad.Count)", "") + $bad',
-    'Set-Content -LiteralPath (Join-Path $work "bao-cao.txt") -Value $report -Encoding UTF8',
+    'Set-Content -LiteralPath (Join-Path $outDir "bao-cao.txt") -Value $report -Encoding UTF8',
     'if ($ok -gt 0) {',
-    '  $zipPath = Join-Path $root ($name + ".zip")',
-    '  if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }',
-    '  Compress-Archive -Path (Join-Path $work "*") -DestinationPath $zipPath -Force',
-    '  Write-Host ("DONE: " + $zipPath) -ForegroundColor Green',
+    '  Write-Host ("Images folder: " + $outDir) -ForegroundColor Green',
     '  Write-Host ("Success: $ok / $($urls.Count); failed: $($bad.Count)")',
     '} else { Write-Host "No images downloaded. Check URLs and access." -ForegroundColor Red; $bad | ForEach-Object { Write-Host $_ } }',
-    'Remove-Item -LiteralPath $work -Recurse -Force',
-    'Read-Host "Press Enter to close"'
+    'Write-Host "This window will close in 5 seconds..."',
+    'Start-Sleep -Seconds 5'
   ];
   return [
     '@echo off',
@@ -134,7 +132,7 @@ function makeWindowsBat(urls, outputName) {
     'echo Downloading images. Please wait...',
     `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p='%~f0'; $c=Get-Content -LiteralPath $p; $a=[Array]::IndexOf($c,'#--PS--'); $b=[Array]::IndexOf($c,'#--URLS--'); if($a -lt 0 -or $b -le $a){throw 'Invalid BAT format'}; $f=Join-Path $env:TEMP ([guid]::NewGuid().ToString()+'.ps1'); $c[($a+1)..($b-1)] | Set-Content -LiteralPath $f -Encoding UTF8; & $f -BatPath $p; Remove-Item -LiteralPath $f -Force"`,
     'if errorlevel 1 echo Error running PowerShell. Check the messages above.',
-    'pause',
+    'timeout /t 5 /nobreak >nul',
     'exit /b',
     '#--PS--',
     ...psLines,
@@ -156,22 +154,22 @@ $('downloadBat').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
   setStatus('Đã tải file .bat cho Windows. Lưu file, nhấp đúp để chạy; ZIP sẽ được tạo cạnh file .bat với tên ' + name + '.zip. Không chạy file nếu bạn chưa kiểm tra danh sách URL.', 'ok');
 });
+async function copySourceZipCode() {
+  const code=$('sourceCode').value || $('sourceCode').textContent;
+  try { await navigator.clipboard.writeText(code); setStatus('Đã copy ZIP code. Mở tab trang sách → F12 → Console → Ctrl+V → Enter.','ok'); }
+  catch { $('sourceCode').focus(); $('sourceCode').select(); setStatus('Không thể tự copy. Mã đã được chọn; nhấn Ctrl+C để sao chép.','error'); }
+}
+$('copyZipCode').addEventListener('click', copySourceZipCode);
 $('sourceZip').addEventListener('click', async () => {
   const urls=updatePreview();
   const name=($('bookname').value.trim()||'SGK_Sach').replace(/[^\\p{L}\\p{N}._ -]+/gu,'_').replace(/\\s+/g,'_');
   if(!urls.length) return setStatus('Chưa tìm thấy URL. Hãy dán danh sách trước.','error');
   if(urls.length>250) return setStatus('Tối đa 250 URL mỗi lần.','error');
   const code=makeSourceDownloadCode(urls,name);
-  $('sourceCode').textContent=code;
+  $('sourceCode').value=code;
   $('sourceCodeWrap').hidden=false;
-  $('sourceCode').focus();
-  setStatus('Đã tạo mã tải ZIP. Đang thử sao chép tự động; nếu không được, hãy sao chép mã đang hiện bên dưới.','ok');
-  try {
-    await navigator.clipboard.writeText(code);
-    setStatus('Đã tạo và sao chép mã tải ZIP. Mở tab trang sách → F12 → Console → dán mã (Ctrl+V) → Enter. Thanh tiến trình sẽ xuất hiện ngay trên trang sách.','ok');
-  } catch {
-    setStatus('Mã đã hiện bên dưới nhưng trình duyệt không cho tự sao chép. Bấm vào ô mã, Ctrl+A rồi Ctrl+C; sau đó chạy trong Console của tab trang sách.','error');
-  }
+  setStatus('Đã tạo mã tải ZIP. Đang sao chép vào clipboard…','ok');
+  await copySourceZipCode();
 });
 processButton.addEventListener('click', async () => {
   const urls = updatePreview();
