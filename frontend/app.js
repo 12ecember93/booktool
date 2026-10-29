@@ -92,12 +92,15 @@ $('sourceZip').addEventListener('click', async () => {
   if(!urls.length) return setStatus('Chưa tìm thấy URL. Hãy dán danh sách trước.','error');
   if(urls.length>250) return setStatus('Tối đa 250 URL mỗi lần.','error');
   const code=makeSourceDownloadCode(urls,name);
+  $('sourceCode').textContent=code;
+  $('sourceCodeWrap').hidden=false;
+  $('sourceCode').focus();
+  setStatus('Đã tạo mã tải ZIP. Đang thử sao chép tự động; nếu không được, hãy sao chép mã đang hiện bên dưới.','ok');
   try {
     await navigator.clipboard.writeText(code);
-    setStatus('Đã copy mã tải ZIP. Mở tab trang sách → F12 → Console → dán mã (Ctrl+V) → Enter. Thanh tiến trình sẽ xuất hiện ngay trên trang sách.','ok');
+    setStatus('Đã tạo và sao chép mã tải ZIP. Mở tab trang sách → F12 → Console → dán mã (Ctrl+V) → Enter. Thanh tiến trình sẽ xuất hiện ngay trên trang sách.','ok');
   } catch {
-    $('sourceCode').textContent=code; $('sourceCodeWrap').hidden=false;
-    setStatus('Không thể copy tự động. Mã đã hiện bên dưới; chọn toàn bộ mã, copy rồi chạy trong Console của tab trang sách.','error');
+    setStatus('Mã đã hiện bên dưới nhưng trình duyệt không cho tự sao chép. Bấm vào ô mã, Ctrl+A rồi Ctrl+C; sau đó chạy trong Console của tab trang sách.','error');
   }
 });
 processButton.addEventListener('click', async () => {
@@ -107,6 +110,7 @@ processButton.addEventListener('click', async () => {
   if (urls.length > 250) return setStatus('Tối đa 250 URL mỗi lần.', 'error');
   if (typeof JSZip === 'undefined') return setStatus('Không tải được thư viện ZIP. Kiểm tra kết nối Internet rồi tải lại trang.', 'error');
   processButton.disabled = true;
+  setStatus('Đã bắt đầu. Đang khởi tạo tải ảnh…');
   $('progress').hidden = false; $('progressPanel').hidden = false; $('bar').style.width = '2%';
   $('log').textContent = ''; ['p1','p2','p3','p4','p5'].forEach(id => $(id).classList.remove('active')); $('p1').classList.add('active');
   const zip = new JSZip(); let done = 0; let failed = [];
