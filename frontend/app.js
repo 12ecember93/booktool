@@ -288,3 +288,23 @@ function refreshOutputName() { $('outputNamePreview').textContent = getOutputNam
 ['nameRoot','nameNo','nameType'].forEach(id => $(id).addEventListener('input', refreshOutputName));
 refreshOutputName();
 updatePreview();
+async function refreshDeployVersion() {
+  const el = $('deployVersion');
+  if (!el) return;
+  try {
+    const response = await fetch('https://api.github.com/repos/12ecember93/booktool/actions/runs?per_page=10', { cache: 'no-store' });
+    if (!response.ok) throw new Error('GitHub Actions API unavailable');
+    const data = await response.json();
+    const run = (data.workflow_runs || []).find(item => item.name === 'Deploy Get images to PDF tool' && item.status === 'completed' && item.conclusion === 'success');
+    if (run) {
+      el.textContent = 'Deploy Get images to PDF tool #' + run.run_number;
+      el.href = run.html_url;
+      el.title = 'Deploy thành công: ' + run.display_title;
+    } else {
+      el.textContent = 'Deploy: chưa có bản thành công';
+    }
+  } catch {
+    el.title = 'Không lấy được trạng thái GitHub Actions. Bấm để kiểm tra thủ công.';
+  }
+}
+refreshDeployVersion();
