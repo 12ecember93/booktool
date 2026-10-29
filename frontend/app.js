@@ -45,6 +45,61 @@ async function copyExtractCode() {
 }
 $('copyCode').addEventListener('click', copyExtractCode);
 $('copyCodeGuide').addEventListener('click', copyExtractCode);
+function makeSourceDownloadCode(urls, filename) {
+  return `(async () => {
+    const urls = ${JSON.stringify(urls)};
+    const filename = ${JSON.stringify(filename)};
+    const id = '__zipDownloadProgress';
+    document.getElementById(id)?.remove();
+    const panel = document.createElement('div');
+    panel.id = id;
+    panel.style.cssText = 'position:fixed;z-index:2147483647;top:16px;right:16px;width:min(420px,calc(100vw - 32px));background:#fff;color:#142344;border:2px solid #1677f9;border-radius:12px;padding:16px;font:14px/1.45 system-ui,sans-serif;box-shadow:0 8px 35px #0003';
+    panel.innerHTML = '<b style="font-size:16px">Đang tải ảnh và tạo ZIP</b><div id="zipMsg" style="margin:8px 0">Đang chuẩn bị…</div><div style="height:8px;background:#e7edf7;border-radius:8px;overflow:hidden"><div id="zipBar" style="height:100%;width:0;background:#1677f9"></div></div><div id="zipLog" style="margin-top:8px;color:#52627e;font-size:12px"></div>';
+    document.body.appendChild(panel);
+    const msg = panel.querySelector('#zipMsg'), bar = panel.querySelector('#zipBar'), log = panel.querySelector('#zipLog');
+    const say = (s, n, total) => { msg.textContent=s; if (total) bar.style.width=Math.round(n/total*100)+'%'; log.textContent=n+' / '+total+' URL'; };
+    try {
+      if (!window.JSZip) await new Promise((resolve,reject) => {
+        const script=document.createElement('script'); script.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'; script.onload=resolve; script.onerror=()=>reject(new Error('Không tải được thư viện ZIP từ CDN')); document.head.appendChild(script);
+      });
+      const zip = new JSZip(); let done=0, failed=[];
+      for (let i=0;i<urls.length;i++) {
+        say('Đang tải ảnh '+(i+1)+'/'+urls.length, i, urls.length);
+        try {
+          const response=await fetch(urls[i], {credentials:'same-origin'});
+          if(!response.ok) throw new Error('HTTP '+response.status);
+          const blob=await response.blob();
+          if(!blob.size) throw new Error('File rỗng');
+          const path=new URL(urls[i], location.href).pathname;
+          let name=decodeURIComponent(path.split('/').pop()||('image-'+(i+1)+'.img')).replace(/[^\\p{L}\\p{N}._-]+/gu,'_');
+          zip.file('Anh/'+String(i+1).padStart(3,'0')+'-'+name,blob); done++;
+        } catch(e) { failed.push((i+1)+'. '+urls[i]+' — '+e.message); }
+        bar.style.width=Math.round((i+1)/urls.length*75)+'%';
+        log.textContent='Thành công: '+done+' · Lỗi: '+failed.length+' · '+(i+1)+'/'+urls.length;
+      }
+      if(!done) throw new Error('Không tải được ảnh nào. Kiểm tra quyền truy cập trang sách.');
+      zip.file('bao-cao.txt','Tổng URL: '+urls.length+'\\nTải được: '+done+'\\nLỗi: '+failed.length+'\\n\\n'+failed.join('\\n'));
+      msg.textContent='Đang đóng ZIP…'; log.textContent='Đã tải '+done+' ảnh. Đang nén…';
+      const blob=await zip.generateAsync({type:'blob'},m=>bar.style.width=(75+Math.round(m.percent*.25))+'%');
+      const a=document.createElement('a'), objectUrl=URL.createObjectURL(blob); a.href=objectUrl; a.download=filename+'.zip'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
+      msg.textContent='Hoàn tất — đã tải '+filename+'.zip'; bar.style.width='100%'; log.textContent='Ảnh thành công: '+done+' · Lỗi: '+failed.length+'. Xem bao-cao.txt trong ZIP.';
+    } catch(e) { msg.textContent='Lỗi: '+e.message; log.textContent='Thao tác chưa hoàn tất. Giữ nguyên trang và kiểm tra thông báo này.'; }
+  })();`;
+}
+$('sourceZip').addEventListener('click', async () => {
+  const urls=updatePreview();
+  const name=($('bookname').value.trim()||'SGK_Sach').replace(/[^\\p{L}\\p{N}._ -]+/gu,'_').replace(/\\s+/g,'_');
+  if(!urls.length) return setStatus('Chưa tìm thấy URL. Hãy dán danh sách trước.','error');
+  if(urls.length>250) return setStatus('Tối đa 250 URL mỗi lần.','error');
+  const code=makeSourceDownloadCode(urls,name);
+  try {
+    await navigator.clipboard.writeText(code);
+    setStatus('Đã copy mã tải ZIP. Mở tab trang sách → F12 → Console → dán mã (Ctrl+V) → Enter. Thanh tiến trình sẽ xuất hiện ngay trên trang sách.','ok');
+  } catch {
+    $('sourceCode').textContent=code; $('sourceCodeWrap').hidden=false;
+    setStatus('Không thể copy tự động. Mã đã hiện bên dưới; chọn toàn bộ mã, copy rồi chạy trong Console của tab trang sách.','error');
+  }
+});
 processButton.addEventListener('click', async () => {
   const urls = updatePreview();
   const name = ($('bookname').value.trim() || 'SGK_Sach').replace(/[^\\p{L}\\p{N}._ -]+/gu, '_').replace(/\\s+/g, '_');
