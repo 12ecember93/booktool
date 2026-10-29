@@ -88,20 +88,59 @@ function makeSourceDownloadCode(urls, filename) {
 }
 function makeWindowsBat(urls, outputName) {
   const safeName = outputName.replace(/\.zip$/i, '').replace(/[^A-Za-z0-9._ -]/g, '_').trim() || 'SGK_Sach';
-  const ps = "$p=$env:BATFILE; $c=Get-Content -LiteralPath $p; $i=[Array]::IndexOf($c,'#--URLS--'); if($i -lt 0){Write-Host 'URL list missing'; exit 2}; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $urls=@($c[($i+1)..($c.Length-1)] | Where-Object { $_ -match '^https?://' }); $name='" + safeName.replace(/'/g, "''") + "'; $root=Split-Path -Parent $p; $work=Join-Path $env:TEMP ([Guid]::NewGuid().ToString()); New-Item -ItemType Directory -Path (Join-Path $work 'Anh') -Force | Out-Null; $bad=New-Object System.Collections.Generic.List[string]; $ok=0; for($n=0;$n -lt $urls.Count;$n++){ $u=$urls[$n].Trim(); Write-Progress -Activity 'Downloading images' -Status ('URL '+($n+1)+'/'+$urls.Count+' | success '+$ok+' | failed '+$bad.Count) -PercentComplete ([int](($n+1)*100/[Math]::Max(1,$urls.Count))); try { $uri=[Uri]$u; $ext=[IO.Path]::GetExtension($uri.AbsolutePath); if($ext -notmatch '^\\.(png|jpe?g|webp|gif|avif|bmp|tiff?)$'){ $ext='.img' }; $dest=Join-Path (Join-Path $work 'Anh') (('{0:D3}-image{1}' -f ($n+1),$ext)); Invoke-WebRequest -Uri $u -OutFile $dest -UseBasicParsing -TimeoutSec 60 -Headers @{'User-Agent'='Mozilla/5.0'}; if((Get-Item $dest).Length -eq 0){throw 'Empty file'}; $ok++ } catch { $bad.Add((($n+1).ToString()+'. '+$u+' -- '+$_.Exception.Message)) } }; $report=@('URLs: '+$urls.Count,'Downloaded: '+$ok,'Failed: '+$bad.Count,'') + $bad; Set-Content -LiteralPath (Join-Path $work 'bao-cao.txt') -Value $report -Encoding UTF8; if($ok -gt 0){ $zip=Join-Path $root ($name+'.zip'); if(Test-Path $zip){Remove-Item $zip -Force}; Compress-Archive -Path (Join-Path $work '*') -DestinationPath $zip -Force; Write-Host ('Done: '+$zip); Write-Host ('Success: '+$ok+' | Failed: '+$bad.Count) } else { Write-Host 'No images downloaded. Check URL access.'; Write-Host ($bad -join [Environment]::NewLine) }; Remove-Item $work -Recurse -Force; Read-Host 'Press Enter to close'";
+  const psLines = [
+    'param([string]$BatPath)',
+    '$ErrorActionPreference = "Stop"',
+    '$all = Get-Content -LiteralPath $BatPath',
+    '$marker = [Array]::IndexOf($all, "#--URLS--")',
+    'if ($marker -lt 0) { throw "URL list missing from BAT." }',
+    '$urls = @($all[($marker + 1)..($all.Length - 1)] | Where-Object { $_ -match "^https?://" })',
+    '$name = "' + safeName + '"',
+    '$root = Split-Path -Parent $BatPath',
+    '$work = Join-Path $env:TEMP ([Guid]::NewGuid().ToString())',
+    '$imgDir = Join-Path $work "Anh"',
+    'New-Item -ItemType Directory -Path $imgDir -Force | Out-Null',
+    '$bad = New-Object System.Collections.Generic.List[string]',
+    '$ok = 0',
+    'for ($n = 0; $n -lt $urls.Count; $n++) {',
+    '  $u = $urls[$n].Trim()',
+    '  Write-Progress -Activity "Download images" -Status ("URL {0}/{1} | success {2} | failed {3}" -f ($n+1), $urls.Count, $ok, $bad.Count) -PercentComplete ([int](($n+1)*100/[Math]::Max(1,$urls.Count)))',
+    '  try {',
+    '    $uri = [Uri]$u',
+    '    $ext = [IO.Path]::GetExtension($uri.AbsolutePath)',
+    '    if ($ext -notmatch "^\\.(png|jpe?g|webp|gif|avif|bmp|tiff?)$") { $ext = ".img" }',
+    '    $dest = Join-Path $imgDir ("{0:D3}-image{1}" -f ($n+1), $ext)',
+    '    Invoke-WebRequest -Uri $u -OutFile $dest -TimeoutSec 60 -Headers @{"User-Agent"="Mozilla/5.0"}',
+    '    if ((Get-Item -LiteralPath $dest).Length -eq 0) { throw "Empty file" }',
+    '    $ok++',
+    '  } catch { $bad.Add(("{0}. {1} -- {2}" -f ($n+1), $u, $_.Exception.Message)) }',
+    '}',
+    '$report = @("URLs: $($urls.Count)", "Downloaded: $ok", "Failed: $($bad.Count)", "") + $bad',
+    'Set-Content -LiteralPath (Join-Path $work "bao-cao.txt") -Value $report -Encoding UTF8',
+    'if ($ok -gt 0) {',
+    '  $zipPath = Join-Path $root ($name + ".zip")',
+    '  if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }',
+    '  Compress-Archive -Path (Join-Path $work "*") -DestinationPath $zipPath -Force',
+    '  Write-Host ("DONE: " + $zipPath) -ForegroundColor Green',
+    '  Write-Host ("Success: $ok / $($urls.Count); failed: $($bad.Count)")',
+    '} else { Write-Host "No images downloaded. Check URLs and access." -ForegroundColor Red; $bad | ForEach-Object { Write-Host $_ } }',
+    'Remove-Item -LiteralPath $work -Recurse -Force',
+    'Read-Host "Press Enter to close"'
+  ];
   return [
     '@echo off',
     'setlocal',
-    'set "BATFILE=%~f0"',
     'title Download images and create ZIP',
-    'echo Downloading images and creating ZIP. Please wait...',
-    'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "' + ps.replace(/"/g, '""') + '"',
-    'if errorlevel 1 echo Failed. Check the messages above.',
+    'echo Downloading images. Please wait...',
+    'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p=''%~f0''; $c=Get-Content -LiteralPath $p; $a=[Array]::IndexOf($c,''#--PS--''); $b=[Array]::IndexOf($c,''#--URLS--''); if($a -lt 0 -or $b -le $a){throw ''Invalid BAT format''}; $f=Join-Path $env:TEMP ([guid]::NewGuid().ToString()+''.ps1''); $c[($a+1)..($b-1)] | Set-Content -LiteralPath $f -Encoding UTF8; & $f -BatPath $p; Remove-Item -LiteralPath $f -Force"',
+    'if errorlevel 1 echo Error running PowerShell. Check the messages above.',
     'pause',
     'exit /b',
+    '#--PS--',
+    ...psLines,
     '#--URLS--',
     ...urls
-  ].join('\r\n') + '\r\n';
+  ].join('\\r\\n') + '\\r\\n';
 }
 $('downloadBat').addEventListener('click', () => {
   const urls = updatePreview();
