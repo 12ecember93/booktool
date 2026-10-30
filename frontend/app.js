@@ -160,7 +160,7 @@ function makeWindowsBat(urls, outputName) {
 "    '          }',",
 "    '          count++;',",
 "    '        }',",
-"    '      } catch { }',",
+"    '      } catch (Exception ex) { throw new Exception(\"Image decode failed: \" + f + \" — \" + ex.Message); }',",
 "    '    }',",
 "    '    if(count==0) return 0;',",
 "    '    o[1]=Encoding.ASCII.GetBytes(\"<< /Type /Catalog /Pages 2 0 R >>\");',",
